@@ -1,0 +1,285 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attend — Face Attendance</title>
+<style>
+:root {
+  --bg:#f5f6f8; --panel:#fff; --text:#202630; --muted:#737d8b;
+  --line:#e5e8ed; --accent:#315b48; --accent-light:#e8f1eb;
+  --danger:#b54747; --radius:9px;
+}
+* { box-sizing:border-box }
+body { margin:0; font:14px/1.5 "Segoe UI",Arial,sans-serif; color:var(--text); background:var(--bg) }
+.layout { display:flex; min-height:100vh }
+aside { width:225px; flex-shrink:0; background:#fff; border-right:1px solid var(--line); padding:25px 15px }
+.brand { font-size:20px; font-weight:700; letter-spacing:-.6px; padding:0 12px 30px }
+.brand span { color:var(--accent) }
+.nav-label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px; padding:12px }
+nav a { display:block; text-decoration:none; color:#5e6876; padding:11px 12px; margin:3px 0; border-radius:6px }
+nav a:hover,nav a.active { background:var(--accent-light); color:var(--accent); font-weight:600 }
+main { min-width:0; flex:1; padding:30px clamp(18px,4vw,48px); max-width:1600px }
+.top { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:28px }
+h1 { font-size:25px; letter-spacing:-.6px; margin:0 0 5px }
+.sub { color:var(--muted); margin:0 }
+.status { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line); padding:9px 12px; border-radius:6px }
+.dot { width:8px; height:8px; border-radius:50%; background:#c38c37 }
+.dot.on { background:#329568 }
+.stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:24px }
+.panel,.stat { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius) }
+.stat { padding:19px 21px }
+.stat-label { color:var(--muted); font-size:13px }
+.stat-value { font-size:29px; font-weight:650; margin-top:9px; letter-spacing:-1px }
+.content { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(240px,.8fr); gap:18px; align-items:start }
+.panel-head { padding:18px 20px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:12px }
+.panel-head h2 { font-size:15px; margin:0; font-weight:650 }
+.panel-body { padding:20px }
+.camera { background:#15191d; border-radius:6px; min-height:260px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center }
+video { display:block; width:100%; height:auto; max-height:520px; object-fit:contain }
+canvas.overlay { position:absolute; inset:0; width:100%; height:100%; pointer-events:none }
+.camera-placeholder { color:#c8cdd2; text-align:center; padding:35px }
+.camera-placeholder p { color:#9da5ad }
+.actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:15px }
+button { border:1px solid var(--line); border-radius:6px; padding:10px 14px; background:white; color:var(--text); font:inherit; font-weight:600; cursor:pointer }
+button.primary { color:white; background:var(--accent); border-color:var(--accent) }
+button:disabled { opacity:.5; cursor:default }
+.note { color:var(--muted); font-size:12px; margin:14px 0 0 }
+.result { background:#f7f8f9; padding:13px; border-radius:6px; margin-top:14px }
+.result strong { display:block; font-size:15px; margin-bottom:3px }
+.result p { margin:0; color:var(--muted); font-size:13px }
+.activity-row { display:flex; justify-content:space-between; gap:12px; padding:14px 0; border-bottom:1px solid var(--line) }
+.activity-row:last-child { border-bottom:0 }
+.small { color:var(--muted); font-size:12px }
+.tag { display:inline-block; font-size:11px; padding:3px 7px; border-radius:4px; background:#edf0f2; color:#56616d }
+footer { color:var(--muted); font-size:12px; padding:25px 0 }
+@media(max-width:850px) {
+ .layout { display:block } aside { width:auto; padding:12px; border-right:0; border-bottom:1px solid var(--line) }
+ .brand { padding:5px 8px 12px } .nav-label { display:none }
+ nav { display:flex; gap:5px; overflow:auto } nav a { white-space:nowrap; padding:8px }
+ main { padding:22px 15px } .content { grid-template-columns:1fr }
+}
+@media(max-width:520px) { .stats { grid-template-columns:1fr } .stat { padding:14px 17px } .stat-value { font-size:24px } }
+</style>
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">attend<span>.</span></div>
+  <div class="nav-label">Workspace</div>
+  <nav>
+    <a href="#dashboard" class="active">Overview</a>
+    <a href="#camera">Live camera</a>
+    <a href="#students">Students</a>
+    <a href="#attendance">Attendance</a>
+  </nav>
+</aside>
+<main>
+  <header class="top">
+    <div><h1 id="pageTitle">Overview</h1><p class="sub" id="today"></p></div>
+    <div class="status"><span class="dot" id="healthDot"></span><span id="healthText">Checking backend…</span></div>
+  </header>
+
+  <section class="stats" id="dashboard">
+    <div class="stat"><div class="stat-label">Students registered</div><div class="stat-value" id="studentCount">—</div></div>
+    <div class="stat"><div class="stat-label">Attendance today</div><div class="stat-value" id="attendanceCount">—</div></div>
+    <div class="stat"><div class="stat-label">Faces in current frame</div><div class="stat-value" id="faceCount">0</div></div>
+  </section>
+
+  <section class="content" id="camera">
+    <div class="panel">
+      <div class="panel-head"><h2>Live camera</h2><span class="tag" id="cameraState">Camera off</span></div>
+      <div class="panel-body">
+        <div class="camera" id="cameraBox">
+          <video id="video" autoplay playsinline muted hidden></video>
+          <canvas class="overlay" id="overlay" hidden></canvas>
+          <div class="camera-placeholder" id="placeholder">
+            <strong>Camera preview</strong>
+            <p>Start the camera to detect faces in real time.</p>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="startBtn">Start camera</button>
+          <button id="stopBtn" disabled>Stop camera</button>
+        </div>
+        <div class="result">
+          <strong id="detectionTitle">Ready for detection</strong>
+          <p id="detectionText">Detected faces will be outlined in the preview.</p>
+        </div>
+        <p class="note">This version detects faces only. Identity recognition and attendance marking are not enabled yet. Camera frames are sent to your local FastAPI server for inference.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head"><h2>Detection status</h2></div>
+        <div class="panel-body">
+          <div class="activity-row"><span>Model</span><strong id="modelState">Checking…</strong></div>
+          <div class="activity-row"><span>Processing</span><strong id="processingTime">—</strong></div>
+          <div class="activity-row"><span>Last result</span><strong id="lastResult">—</strong></div>
+          <div class="activity-row"><span>Identity</span><strong>Not configured</strong></div>
+          <p class="note">Keep the page open while the camera is running. Only one detection request is processed at a time.</p>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:18px">
+        <div class="panel-head"><h2>Next steps</h2></div>
+        <div class="panel-body">
+          <div class="activity-row"><span>01. Face detection</span><span class="tag">Current</span></div>
+          <div class="activity-row"><span>02. Student enrollment</span><span class="tag">Pending</span></div>
+          <div class="activity-row"><span>03. Identity matching</span><span class="tag">Pending</span></div>
+          <div class="activity-row"><span>04. Attendance records</span><span class="tag">Pending</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="students" style="margin-top:22px">
+    <div class="panel-head"><h2>Student records</h2><span class="tag">Database integration pending</span></div>
+    <div class="panel-body"><p class="sub">Student registration and searchable records will appear here after Supabase is connected.</p></div>
+  </section>
+  <section class="panel" id="attendance" style="margin-top:18px">
+    <div class="panel-head"><h2>Attendance records</h2><span class="tag">Database integration pending</span></div>
+    <div class="panel-body"><p class="sub">Daily attendance history will appear here after identity matching and database integration.</p></div>
+  </section>
+  <footer>Attend · Face Attendance System</footer>
+</main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const video = $('video');
+const overlay = $('overlay');
+const ctx = overlay.getContext('2d');
+let stream = null;
+let running = false;
+let busy = false;
+let timer = null;
+
+$('today').textContent = new Date().toLocaleDateString(undefined, {
+  weekday:'long', year:'numeric', month:'long', day:'numeric'
+});
+
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const data = await r.json();
+    $('healthDot').classList.toggle('on', r.ok && data.model_available);
+    $('healthText').textContent = r.ok && data.model_available
+      ? 'Backend and model online' : 'Model unavailable';
+    $('modelState').textContent = data.model_available ? 'Available' : 'Unavailable';
+  } catch {
+    $('healthText').textContent = 'Backend unavailable';
+    $('modelState').textContent = 'Offline';
+  }
+}
+checkHealth();
+
+$('startBtn').addEventListener('click', async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user', width:{ideal:640}, height:{ideal:480}},
+      audio:false
+    });
+    video.srcObject = stream;
+    await video.play();
+    video.hidden = false;
+    $('placeholder').hidden = true;
+    overlay.hidden = false;
+    running = true;
+    $('startBtn').disabled = true;
+    $('stopBtn').disabled = false;
+    $('cameraState').textContent = 'Camera running';
+    timer = setInterval(detectFrame, 1300);
+    detectFrame();
+  } catch (e) {
+    $('detectionTitle').textContent = 'Camera could not start';
+    $('detectionText').textContent = e.message || 'Allow camera access in your browser settings.';
+  }
+});
+
+function stopCamera() {
+  running = false;
+  clearInterval(timer);
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  stream = null;
+  video.srcObject = null;
+  video.hidden = true;
+  overlay.hidden = true;
+  $('placeholder').hidden = false;
+  $('startBtn').disabled = false;
+  $('stopBtn').disabled = true;
+  $('cameraState').textContent = 'Camera off';
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+}
+$('stopBtn').addEventListener('click', stopCamera);
+window.addEventListener('beforeunload', () => {
+  if (stream) stream.getTracks().forEach(track => track.stop());
+});
+
+async function detectFrame() {
+  if (!running || busy || !video.videoWidth) return;
+  busy = true;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .8));
+    if (!blob) throw new Error('Could not capture camera frame');
+
+    const form = new FormData();
+    form.append('file', blob, 'camera.jpg');
+    const response = await fetch('/api/detection', {method:'POST', body:form});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || 'Detection request failed');
+
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    const faces = data.faces || [];
+
+    ctx.strokeStyle = '#70d4a0';
+    ctx.lineWidth = Math.max(2, overlay.width / 320);
+    ctx.font = '14px Segoe UI';
+    faces.forEach(face => {
+      const w = face.x2 - face.x1;
+      const h = face.y2 - face.y1;
+      ctx.strokeRect(face.x1, face.y1, w, h);
+      ctx.fillStyle = '#70d4a0';
+      ctx.fillRect(face.x1, Math.max(0, face.y1 - 23), 95, 23);
+      ctx.fillStyle = '#10251b';
+      ctx.fillText('Face ' + Math.round(face.confidence * 100) + '%',
+        face.x1 + 5, Math.max(15, face.y1 - 7));
+    });
+
+    $('faceCount').textContent = faces.length;
+    $('processingTime').textContent = data.processing_time_ms == null
+      ? 'Completed' : Math.round(data.processing_time_ms) + ' ms';
+    $('lastResult').textContent = new Date().toLocaleTimeString();
+    $('detectionTitle').textContent = faces.length
+      ? faces.length + (faces.length === 1 ? ' face detected' : ' faces detected')
+      : 'No faces detected';
+    $('detectionText').textContent = 'Confidence threshold: ' +
+      Math.round((data.confidence_threshold || .5) * 100) + '%';
+  } catch (e) {
+    $('detectionTitle').textContent = 'Detection error';
+    $('detectionText').textContent = e.message;
+  } finally {
+    busy = false;
+  }
+}
+
+document.querySelectorAll('nav a').forEach(link => {
+  link.addEventListener('click', () => {
+    document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+    link.classList.add('active');
+    const names = {
+      '#dashboard':'Overview', '#camera':'Live camera',
+      '#students':'Student records', '#attendance':'Attendance records'
+    };
+    $('pageTitle').textContent = names[link.hash] || 'Overview';
+  });
+});
+</script>
+</body>
+</html>
